@@ -1,6 +1,6 @@
 # 🍕 Tropa Split
 
-<!-- [![CI/CD Pipeline](https://github.com/cassssy/TropaSplit/actions/workflows/ci.yml/badge.svg)](https://github.com/cassssy/TropaSplit/actions) -->
+[![CI/CD Pipeline](https://github.com/cassssy/TropaSplit/actions/workflows/ci.yml/badge.svg)](https://github.com/cassssy/TropaSplit/actions)
 
 **Split the table bill in one tap — no math, no IOU chasing.**
 
