@@ -1,93 +1,104 @@
 #![cfg(test)]
 
-mod tests {
-    use soroban_sdk::testutils::Address as _;
-    use soroban_sdk::token::{Client as TokenClient, StellarAssetClient};
-    use soroban_sdk::{Address, Env};
+use super::*;
+use soroban_sdk::{testutils::Address as _, Address, Env, Symbol, Map};
+use soroban_sdk::token;
 
-    use crate::{SplitError, TropaSplit, TropaSplitClient};
+fn setup_token<'a>(env: &Env, admin: &Address) -> (token::Client<'a>, token::StellarAssetClient<'a>) {
+    let token_address = env.register_stellar_asset_contract(admin.clone());
+    (
+        token::Client::new(env, &token_address),
+        token::StellarAssetClient::new(env, &token_address),
+    )
+}
 
-    #[test]
-    fn happy_path_friend_pays_and_payer_receives_usdc() {
-        let env = Env::default();
-        env.mock_all_auths();
+#[test]
+fn test_standard_split_owner_included() {
+    let env = Env::default();
+    env.mock_all_auths();
 
-        let contract_id = env.register(TropaSplit, ());
-        let client = TropaSplitClient::new(&env, &contract_id);
+    let payer = Address::generate(&env);
+    let friend1 = Address::generate(&env);
+    
+    let token_admin = Address::generate(&env);
+    let (token, token_admin_client) = setup_token(&env, &token_admin);
 
-        let token_admin = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-        let token = TokenClient::new(&env, &token_contract.address());
-        let token_admin_client = StellarAssetClient::new(&env, &token_contract.address());
+    let contract_id = env.register_contract(None, TropaSplit);
+    let client = TropaSplitClient::new(&env, &contract_id);
 
-        let payer = Address::generate(&env);
-        let friend = Address::generate(&env);
-        let share_amount: i128 = 10;
+    token_admin_client.mint(&friend1, &1000);
 
-        token_admin_client.mint(&friend, &share_amount);
+    // Total bill: 90, Service: 10, Target: 3
+    // Mode: 0 (Standard), Owner Included: true
+    let split_id = client.create_split(
+        &payer,
+        &token.address,
+        &90,
+        &10,
+        &3,
+        &0,
+        &true,
+    );
 
-        client.init_split(&payer, &token_contract.address());
-        client.register_friend(&payer, &friend, &share_amount);
+    // Share = (90/3) + (10/3) = 30 + 3 = 33
+    client.pay_share(&split_id, &friend1, &0);
+    
+    assert_eq!(token.balance(&friend1), 967);
+    assert_eq!(token.balance(&payer), 33);
+}
 
-        let payer_before = token.balance(&payer);
-        let friend_before = token.balance(&friend);
-        client.pay_share(&friend);
-        let payer_after = token.balance(&payer);
-        let friend_after = token.balance(&friend);
+#[test]
+fn test_direct_split_lobby() {
+    let env = Env::default();
+    env.mock_all_auths();
 
-        assert_eq!(payer_after - payer_before, share_amount);
-        assert_eq!(friend_before - friend_after, share_amount);
-        assert_eq!(client.has_paid(&friend), true);
-    }
+    let payer = Address::generate(&env);
+    let friend1 = Address::generate(&env);
+    let friend2 = Address::generate(&env);
+    
+    let token_admin = Address::generate(&env);
+    let (token, token_admin_client) = setup_token(&env, &token_admin);
 
-    #[test]
-    fn unauthorized_register_friend_rejected() {
-        let env = Env::default();
-        env.mock_all_auths();
+    let contract_id = env.register_contract(None, TropaSplit);
+    let client = TropaSplitClient::new(&env, &contract_id);
 
-        let contract_id = env.register(TropaSplit, ());
-        let client = TropaSplitClient::new(&env, &contract_id);
+    token_admin_client.mint(&friend1, &1000);
+    token_admin_client.mint(&friend2, &1000);
 
-        let token_admin = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-        let payer = Address::generate(&env);
-        let attacker = Address::generate(&env);
-        let friend = Address::generate(&env);
+    // Mode: 2 (Direct), Owner Included: true
+    let split_id = client.create_split(
+        &payer,
+        &token.address,
+        &100,
+        &20,
+        &3,
+        &2,
+        &true,
+    );
 
-        client.init_split(&payer, &token_contract.address());
+    let alice = Symbol::new(&env, "Alice");
+    client.register_participant(&split_id, &friend1, &alice);
+    
+    let bob = Symbol::new(&env, "Bob");
+    client.register_participant(&split_id, &friend2, &bob);
 
-        let res = client.try_register_friend(&attacker, &friend, &10);
-        assert_eq!(res, Err(Ok(SplitError::Unauthorized)));
-    }
+    let lobby = client.get_lobby(&split_id);
+    assert_eq!(lobby.len(), 2);
 
-    #[test]
-    fn double_payment_rejected() {
-        let env = Env::default();
-        env.mock_all_auths();
+    let mut amounts = Map::new(&env);
+    amounts.set(friend1.clone(), 40); // Alice owes 40
+    amounts.set(friend2.clone(), 30); // Bob owes 30
 
-        let contract_id = env.register(TropaSplit, ());
-        let client = TropaSplitClient::new(&env, &contract_id);
+    client.assign_amounts(&split_id, &amounts);
 
-        let token_admin = Address::generate(&env);
-        let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-        let token = TokenClient::new(&env, &token_contract.address());
-        let token_admin_client = StellarAssetClient::new(&env, &token_contract.address());
+    // Math tax: 20 / 3 = 6
+    // Alice pays: 40 + 6 = 46
+    client.pay_share(&split_id, &friend1, &0);
+    assert_eq!(token.balance(&friend1), 954);
+    assert_eq!(token.balance(&payer), 46);
 
-        let payer = Address::generate(&env);
-        let friend = Address::generate(&env);
-        let share_amount: i128 = 10;
-
-        token_admin_client.mint(&friend, &(share_amount * 2));
-
-        client.init_split(&payer, &token_contract.address());
-        client.register_friend(&payer, &friend, &share_amount);
-
-        client.pay_share(&friend);
-        let friend_after_first = token.balance(&friend);
-        let second = client.try_pay_share(&friend);
-        let friend_after_second = token.balance(&friend);
-
-        assert_eq!(second, Err(Ok(SplitError::AlreadyPaid)));
-        assert_eq!(friend_after_first, friend_after_second);
-    }
+    // Bob pays: 30 + 6 = 36
+    client.pay_share(&split_id, &friend2, &0);
+    assert_eq!(token.balance(&friend2), 964);
+    assert_eq!(token.balance(&payer), 82); // 46 + 36 = 82
 }

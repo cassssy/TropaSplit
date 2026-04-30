@@ -1,175 +1,113 @@
-# tropa-split
+Here is the brand new `README.md` that perfectly matches the new Kahoot-style architecture we just built. It replaces the old instructions with everything you need for both the smart contract and the Vite frontend. 
 
-A decentralized bill-splitting smart contract built on [Stellar's Soroban](https://soroban.stellar.org) platform. One person (the payer) initializes a split and registers exactly how much each friend owes. Friends can then interact with the contract to pay their share, which automatically routes the specified token amount directly to the payer's wallet while permanently recording the settled debt on-chain.
+### 1. Your New `README.md`
+Copy this and paste it into the `README.md` file at the root of your project:
+
+```markdown
+# 🍕 Tropa Split
+
+A decentralized, instant bill-splitting dApp built on [Stellar's Soroban](https://soroban.stellar.org) platform. No more tracking down friends for payment or manually typing in who owes what. Just create a room, share a PIN or QR code, and let your friends pay their exact share instantly.
+
+---
+
+## What It Is
+
+Tropa Split works like Kahoot for bill splitting:
+1. The payer inputs the **Total Bill**, the **Service Charge**, and the **Party Size**.
+2. The smart contract generates a **4-digit PIN** (Room ID) and a **QR code**.
+3. Friends scan the QR code at the table or enter the PIN on the website.
+4. The contract automatically calculates their exact share and routes the token payment directly to the payer's wallet.
 
 ---
 
 ## Features
 
-- **Direct peer-to-peer settlement** — the smart contract does not hold funds; when a friend pays, tokens are transferred instantly and directly to the payer.
-- **Immutable debt tracking** — exact amounts owed and payment statuses are stored in persistent on-chain state, creating a trustless ledger for the group.
-- **Permissioned registration** — only the authenticated payer who initiated the split can add friends and set their owed amounts, preventing unauthorized modifications.
-- **Double-payment prevention** — the contract tracks who has already paid and blocks duplicate settlement attempts.
-- **Any-token compatibility** — the contract works with any standard Stellar Soroban token (e.g., USDC, native XLM) defined during initialization.
+- **Instant Join & Pay:** No manual debt assignment needed. The contract does the math automatically.
+- **Kahoot-Style Rooms:** Multiple splits are handled simultaneously through unique Room PINs (`split_id`).
+- **QR Code Integration:** Mobile-friendly. Friends just scan the code to jump straight to the payment page.
+- **Direct Peer-to-Peer Settlement:** The smart contract does not hold funds. Tokens are transferred instantly and directly to the payer.
+- **Capacity Enforcement:** The room automatically locks once the target number of people have paid, preventing overpayments.
 
 ---
 
-## Payment Lifecycle
+## Tech Stack
 
-| Status | Description |
+| Layer | Technology |
 |---|---|
-| `Unregistered` | The friend has not been added to the split yet. Querying their share returns `None`. |
-| `Registered / Unpaid` | The payer has assigned an amount to the friend. `has_paid` returns `false`. |
-| `Paid` | The friend has successfully called `pay_share`. The payer received the funds. `has_paid` returns `true`. Further payments are blocked. |
+| Smart Contract | Rust + Soroban SDK |
+| Blockchain | Stellar (Testnet) |
+| Frontend | Vite + React + TypeScript |
+| Wallet | Freighter Browser Extension |
 
 ---
 
-## Storage Layout
-
-| Key | Type | Scope | Description |
-|---|---|---|---|
-| `Payer` | `Address` | Instance | The address of the person who paid the bill and receives the funds. |
-| `Token` | `Address` | Instance | The token contract used for settling the debts (e.g., USDC). |
-| `FriendShare(Address)` | `i128` | Persistent | The specific token amount owed by a registered friend. |
-| `HasPaid(Address)` | `bool` | Persistent | Boolean flag tracking if the friend has settled their debt. |
-
----
-
-## Public Interface
-
-### Setup
-
-#### `init_split`
-```rust
-pub fn init_split(
-    env: Env,
-    payer: Address,
-    token_contract: Address,
-) -> Result<(), SplitError>
-```
-Initializes the split. Can only be called once per contract deployment.
-**Requires:** `payer` authorization.
-
----
-
-### Management
-
-#### `register_friend`
-```rust
-pub fn register_friend(
-    env: Env,
-    payer: Address,
-    friend: Address,
-    share_amount: i128,
-) -> Result<(), SplitError>
-```
-Registers a friend and the exact amount they owe.
-**Requires:** `payer` authorization. Payer must match the address set in `init_split`. `share_amount` must be greater than 0. Cannot register the same friend twice.
-
----
-
-### Settlement
-
-#### `pay_share`
-```rust
-pub fn pay_share(env: Env, friend: Address) -> Result<(), SplitError>
-```
-Allows a registered friend to settle their debt. The contract looks up their assigned `share_amount` and initiates a transfer from the `friend` to the `payer` using the configured `token_contract`.
-**Requires:** `friend` authorization. Friend must be registered. Friend must not have already paid.
-
----
-
-### Queries
-
-| Function | Returns | Description |
-|---|---|---|
-| `has_paid(env, friend)` | `bool` | Returns `true` if the friend has already paid their share, `false` otherwise. |
-| `get_share(env, friend)` | `Option<i128>` | Returns the registered share amount for the friend, or `None` if they are not registered. |
-
----
-
-## Error Codes (`SplitError`)
-
-| Code | Name | Reason |
-|---|---|---|
-| `1` | `AlreadyInitialized` | Attempted to call `init_split` on an already configured contract. |
-| `2` | `Unauthorized` | Caller does not match the expected authorized address (e.g., non-payer trying to register a friend). |
-| `3` | `FriendAlreadyRegistered` | Payer attempted to register an address that is already tracked in this split. |
-| `4` | `FriendNotRegistered` | Friend attempted to pay, but no share amount was found for their address. |
-| `5` | `InvalidAmount` | Payer attempted to register a share amount of 0 or less. |
-| `6` | `AlreadyPaid` | Friend attempted to call `pay_share` after they have already successfully settled. |
-
----
-
-## Getting Started
+## Running Locally
 
 ### Prerequisites
+- Install [Rust](https://www.rust-lang.org/tools/install) and add the WebAssembly target: `rustup target add wasm32-unknown-unknown`
+- Install [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup)
+- Install [Node.js](https://nodejs.org/) (v18+)
+- Install the [Freighter Wallet](https://freighter.app/) extension in your browser
 
-- [Rust](https://www.rust-lang.org/tools/install) with `wasm32-unknown-unknown` target
-- [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools/cli/install-cli)
-
+### 1. Build and Deploy the Contract
 ```bash
-rustup target add wasm32-unknown-unknown
-```
+cd contract
 
-### Build
-
-```bash
+# Build the optimized WASM file
 cargo build --target wasm32-unknown-unknown --release
-```
 
-Output:
+# Deploy to the Stellar Testnet
+stellar contract deploy \
+  --wasm target/wasm32-unknown-unknown/release/tropa_split.wasm \
+  --source default \
+  --network testnet
 ```
-target/wasm32-unknown-unknown/release/tropa_split.wasm
-```
+*(Save the `CONTRACT_ID` that the terminal prints out!)*
 
-### Test
-
+### 2. Connect the Frontend
 ```bash
-cargo test
+cd ../frontend
+
+# Generate the TypeScript bindings (Replace <YOUR_CONTRACT_ID> with the ID from above)
+stellar contract bindings typescript \
+  --network testnet \
+  --contract-id <YOUR_CONTRACT_ID> \
+  --output-dir src/contracts/tropa-split \
+  --overwrite
+```
+
+### 3. Run the App
+```bash
+# Install frontend dependencies
+npm install
+
+# Start the Vite server
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser to start splitting bills!
 ```
 
 ---
 
-## Example Walkthrough
+### 2. How to Work It (Step-by-Step Guide)
 
-### 1. Deploy the contract
+To actually test this out locally and see it working on your machine, follow these steps:
 
-```bash
-stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/tropa_split.wasm \
-  --source deployer --network testnet
-```
+**Step 1: Setup your Freighter Wallet**
+1. Open your Freighter browser extension and make sure the network is set to **Testnet** (click the gear icon > Preferences > Network > Testnet).
+2. Go to the [Stellar Laboratory Friendbot](https://laboratory.stellar.org/#txbuilder?network=test) or just look for the "Fund with Friendbot" button inside Freighter to get some free fake Testnet XLM. 
 
-### 2. Initialize the split
-*Setup the contract with Alice as the payer, using a Testnet USDC token.*
+**Step 2: Deploy & Generate**
+1. Open your terminal, navigate to the `contract` folder, and run the two commands under the **Build and Deploy the Contract** section in the README. 
+2. Copy the `C...` string it spits out (that's your contract ID).
+3. Navigate to the `frontend` folder in your terminal and run the `stellar contract bindings` command, pasting your contract ID at the end. This magically creates the `src/contracts/tropa-split` folder with all your backend logic!
 
-```bash
-stellar contract invoke \
-  --id <CONTRACT_ID> --source alice --network testnet \
-  -- init_split \
-  --payer <ALICE_ADDRESS> \
-  --token_contract <USDC_TOKEN_ADDRESS>
-```
+**Step 3: Run the App**
+1. Inside the `frontend` folder, run `npm install` and then `npm run dev`.
+2. Click the `http://localhost:5173` link in your terminal.
+3. Click **Connect Wallet** in the top right.
+4. Type in `1000` for the bill, `100` for service charge, and `5` for people, then click **Create Room**.
+5. It will take you to the payment page and generate the QR code! (You will see Freighter pop up asking you to sign the transaction to create the room).
 
-### 3. Register a friend
-*Alice records that Bob owes her 150.00 USDC (represented as `1500000000` in stroops if using 7 decimals).*
-
-```bash
-stellar contract invoke \
-  --id <CONTRACT_ID> --source alice --network testnet \
-  -- register_friend \
-  --payer <ALICE_ADDRESS> \
-  --friend <BOB_ADDRESS> \
-  --share_amount 1500000000
-```
-
-### 4. Friend pays their share
-*Bob calls the contract to pay. He must have established a trustline to the token and have sufficient balance. The contract moves the funds to Alice.*
-
-```bash
-stellar contract invoke \
-  --id <CONTRACT_ID> --source bob --network testnet \
-  -- pay_share \
-  --friend <BOB_ADDRESS>
-```
+Let me know if you hit any bumps while running those terminal commands!
