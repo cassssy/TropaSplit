@@ -13,12 +13,13 @@ import { TransactionBuilder, rpc } from '@stellar/stellar-sdk';
 export { SplitMode };
 export type { SplitConfig };
 
-// Token contract: native XLM on testnet
-const TOKEN_CONTRACT_ID = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
+// Token contract: native XLM or USDC
+const TOKEN_CONTRACT_ID = import.meta.env.VITE_USDC_CONTRACT_ID || 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
 
 // Testnet config
 const TESTNET = networks.testnet;
-const RPC_URL = 'https://soroban-testnet.stellar.org:443';
+const RPC_URL = import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org:443';
+const NETWORK_PASSPHRASE = import.meta.env.VITE_NETWORK_PASSPHRASE || TESTNET.networkPassphrase;
 
 type FreighterSignResult =
   | string
@@ -30,9 +31,8 @@ type FreighterSignResult =
     };
 
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function signAndSubmit(tx: any): Promise<void> {
-  const passphrase = TESTNET.networkPassphrase;
+  const passphrase = NETWORK_PASSPHRASE;
 
   // 1. Get raw XDR from the simulated transaction
   const rawXdr = tx.built.toXDR();
@@ -81,7 +81,7 @@ export async function getFreighterClient(overrides?: { networkPassphrase?: strin
   }
 
   const publicKey = overrides?.publicKey || access.address;
-  const networkPassphrase = overrides?.networkPassphrase || TESTNET.networkPassphrase;
+  const networkPassphrase = overrides?.networkPassphrase || NETWORK_PASSPHRASE;
   const rpcUrl = overrides?.rpcUrl || RPC_URL;
 
   return new Client({

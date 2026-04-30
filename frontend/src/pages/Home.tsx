@@ -68,8 +68,10 @@ export default function Home() {
       const STROOPS_PER_UNIT = 10000000;
       const baseStroops = BigInt(Math.round(parsedBase * STROOPS_PER_UNIT));
       const serviceStroops = BigInt(Math.round(parsedService * STROOPS_PER_UNIT));
-      // TESTNET USDC Address
-      const USDC_ADDRESS = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+      // Fallback if VITE is missing
+      const USDC_ADDRESS = import.meta.env.VITE_USDC_CONTRACT_ID || "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+      const NETWORK_PASSPHRASE = import.meta.env.VITE_NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
+      const RPC_URL = import.meta.env.VITE_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org:443";
 
       // You must provide exactly what the Rust contract expects, plus the network options!
       const tx = await TropaSplit.createSplit(
@@ -83,8 +85,8 @@ export default function Home() {
           owner_included: ownerIncluded,
         },
         {
-          networkPassphrase: "Test SDF Network ; September 2015",
-          rpcUrl: "https://soroban-testnet.stellar.org:443",
+          networkPassphrase: NETWORK_PASSPHRASE,
+          rpcUrl: RPC_URL,
           publicKey: address,
         }
       );
