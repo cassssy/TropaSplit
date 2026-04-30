@@ -80,7 +80,7 @@ export default function Home() {
           token: USDC_ADDRESS,
           total_bill: baseStroops,
           service_charge: serviceStroops,
-          target_people: parsedPeople,
+          target_people: parsedPeople + 1, // Contract expects total group size including host
           mode: mode,
           owner_included: ownerIncluded,
         },

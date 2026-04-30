@@ -83,6 +83,7 @@ export default function Pay() {
   // Setup Polling & Fetching Safely
 useEffect(() => {
   let ignore = false; // React lifecycle guard to prevent race conditions
+  let localRetry = 0;
 
   const fetchRoomInfo = async () => {
     if (!Number.isInteger(roomPin) || roomPin <= 0) return;
@@ -91,6 +92,7 @@ useEffect(() => {
       const info = await TropaSplit.getSplitInfo({ split_id: roomPin });
       if (ignore) return;
       setSplitData(info.result);
+      setErrorMessage(null); // Clear error if it recovers
 
       // Save to history
       const savedSplits = JSON.parse(localStorage.getItem('tropa_splits') || '[]');
@@ -107,7 +109,6 @@ useEffect(() => {
 
         if (info.result.mode === SplitMode.Direct) {
           if (isOwner) {
-             // 🚀 FIX 1: Fetch the lobby array, then fetch names/amounts concurrently
              const addrs = await TropaSplit.getLobby({ split_id: roomPin });
              
              const populated = await Promise.all(
@@ -136,8 +137,12 @@ useEffect(() => {
       }
     } catch (err) {
       if (!ignore) {
-        console.error("Could not fetch room info", err);
-        setErrorMessage('Could not load this room. It may not exist yet.');
+        localRetry++;
+        console.error(`Attempt ${localRetry}: Could not fetch room info`, err);
+        // Only show error message after 3 failed attempts (15 seconds) if we don't have data yet
+        if (localRetry > 3 && !splitData) {
+          setErrorMessage('Could not load this room. It may still be confirming on the blockchain, or the PIN is incorrect.');
+        }
       }
     }
   };
@@ -150,7 +155,7 @@ useEffect(() => {
     ignore = true; 
     clearInterval(interval);
   };
-}, [roomPin, address]); 
+}, [roomPin, address, splitData]); 
 
   const handleJoinLobby = async () => {
     if (!address) return alert("Please connect wallet!");
@@ -244,15 +249,18 @@ useEffect(() => {
   const totalBillHuman = (Number(splitData.total_bill) / 10000000).toFixed(2);
   const serviceChargeHuman = (Number(splitData.service_charge) / 10000000).toFixed(2);
 
-  // Math Tax Divisor
+  // Math Tax Divisor (Includes host if they are paying)
   const divisor = splitData.owner_included ? splitData.target_people : Math.max(splitData.target_people - 1, 1);
   const mathTaxHuman = (Number(splitData.service_charge) / 10000000 / divisor).toFixed(2);
-  const isFullyPaid = splitData.paid_count >= divisor;
+  
+  // Progress Target (Always excludes the host since the host doesn't pay themselves through the app)
+  const progressTarget = Math.max(splitData.target_people - 1, 1);
+  const isFullyPaid = splitData.paid_count >= progressTarget;
 
   return (
     <div className="page-shell">
       <div className="row-actions row-end" style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', width: '100%' }}>
-        <button onClick={() => navigate('/')} className="btn btn-secondary" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: 'none' }}>
+        <button onClick={() => navigate('/')} className="btn btn-secondary">
           ← Home
         </button>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -290,7 +298,7 @@ useEffect(() => {
         {isOwner ? (
           <div style={{ backgroundColor: '#f0fdf4', padding: '20px', borderRadius: '8px', border: '1px solid #bbf7d0', marginTop: '20px' }}>
             <h2 style={{ margin: '0 0 10px 0', color: '#166534' }}>Host Dashboard</h2>
-            <p style={{ margin: '0 0 10px 0' }}>Progress: <strong>{splitData.paid_count} / {divisor}</strong> have paid.</p>
+            <p style={{ margin: '0 0 10px 0' }}>Progress: <strong>{splitData.paid_count} / {progressTarget}</strong> have paid.</p>
             {isFullyPaid && <p style={{ color: '#166534', fontWeight: 'bold' }}>All friends have settled up!</p>}
             
             {splitData.mode === SplitMode.Direct && (
@@ -366,7 +374,7 @@ useEffect(() => {
             )}
 
             <p className="muted-text" style={{ textAlign: 'center', marginBottom: '10px' }}>
-              Progress: {splitData.paid_count} / {divisor} have paid
+              Progress: {splitData.paid_count} / {progressTarget} have paid
             </p>
 
             {hasPaid ? (
