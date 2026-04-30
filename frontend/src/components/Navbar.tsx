@@ -7,7 +7,7 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <Link to="/" className="brand-link">
-        🍕 Tropa Split
+        🍕 TropaSplit
       </Link>
 
       <button onClick={connect} className={address ? 'btn btn-secondary' : 'btn btn-primary'}>

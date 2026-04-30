@@ -1,18 +1,30 @@
-Here is the brand new `README.md` that perfectly matches the new Kahoot-style architecture we just built. It replaces the old instructions with everything you need for both the smart contract and the Vite frontend. 
-
-### 1. Your New `README.md`
-Copy this and paste it into the `README.md` file at the root of your project:
-
-```markdown
 # 🍕 Tropa Split
 
-A decentralized, instant bill-splitting dApp built on [Stellar's Soroban](https://soroban.stellar.org) platform. No more tracking down friends for payment or manually typing in who owes what. Just create a room, share a PIN or QR code, and let your friends pay their exact share instantly.
+<!-- [![CI/CD Pipeline](https://github.com/cassssy/TropaSplit/actions/workflows/ci.yml/badge.svg)](https://github.com/cassssy/TropaSplit/actions) -->
+
+**Split the table bill in one tap — no math, no IOU chasing.**
+
+---
+
+## Deployment
+
+|                                 | Link                                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Smart Contract (Stellar Expert) | [CA6...GDO2](https://stellar.expert/explorer/testnet/contract/CA6GQTASFPVFE5HTZD3NK6PUMKOTHGDSUDLXRNZZAVTPNOEQEXDZGDO2) |
+| Token Contract (USDC Testnet)   | [CDL...YSC](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC) |
+| Frontend                        | https://tropa-split.vercel.app/                                                                                        |
+| Network                         | Stellar Testnet                                                                                                        |
+
+![TropaSplit contract on Stellar Expert](docs/stellar_contract.png)
+
+![Tropa Split UI Screenshot (Mobile View)](docs/app_screenshot.png)
 
 ---
 
 ## What It Is
 
-Tropa Split works like Kahoot for bill splitting:
+TropaSplit is a decentralized, instant bill-splitting dApp built on Stellar's Soroban platform. It uses a PIN-based lobby system for bill splitting:
+
 1. The payer inputs the **Total Bill**, the **Service Charge**, and the **Party Size**.
 2. The smart contract generates a **4-digit PIN** (Room ID) and a **QR code**.
 3. Friends scan the QR code at the table or enter the PIN on the website.
@@ -23,7 +35,7 @@ Tropa Split works like Kahoot for bill splitting:
 ## Features
 
 - **Instant Join & Pay:** No manual debt assignment needed. The contract does the math automatically.
-- **Kahoot-Style Rooms:** Multiple splits are handled simultaneously through unique Room PINs (`split_id`).
+- **PIN-Based Lobby Rooms:** Multiple splits are handled simultaneously through unique Room PINs (`split_id`).
 - **QR Code Integration:** Mobile-friendly. Friends just scan the code to jump straight to the payment page.
 - **Direct Peer-to-Peer Settlement:** The smart contract does not hold funds. Tokens are transferred instantly and directly to the payer.
 - **Capacity Enforcement:** The room automatically locks once the target number of people have paid, preventing overpayments.
@@ -32,24 +44,52 @@ Tropa Split works like Kahoot for bill splitting:
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Smart Contract | Rust + Soroban SDK |
-| Blockchain | Stellar (Testnet) |
-| Frontend | Vite + React + TypeScript |
-| Wallet | Freighter Browser Extension |
+| Layer          | Technology                  |
+| -------------- | --------------------------- |
+| Smart Contract | Rust + Soroban SDK          |
+| Blockchain     | Stellar (Testnet)           |
+| Frontend       | Vite + React + TypeScript   |
+| Wallet         | Freighter Browser Extension |
+
+---
+
+## Architecture
+
+```text
+Host (Payer)
+    │
+    ├── create_split()  ──►  TropaSplit Contract (Soroban)
+    │                          │
+    ├── gets QR Code & PIN     │
+    │                          │
+Friends                        │
+    │                          │
+    └── joinAndPay()    ──►  contract checks:
+                                - valid split room
+                                - custom or exact amount
+                                - friend hasn't paid yet
+                                │
+                                └── directly transfers tokens to Host
+```
 
 ---
 
 ## Running Locally
 
 ### Prerequisites
-- Install [Rust](https://www.rust-lang.org/tools/install) and add the WebAssembly target: `rustup target add wasm32-unknown-unknown`
-- Install [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup)
-- Install [Node.js](https://nodejs.org/) (v18+)
-- Install the [Freighter Wallet](https://freighter.app/) extension in your browser
 
-### 1. Build and Deploy the Contract
+```bash
+# Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+rustup target add wasm32-unknown-unknown
+cargo install --locked stellar-cli --features opt
+
+# Node.js 18+
+```
+
+### Contract
+
 ```bash
 cd contract
 
@@ -62,52 +102,32 @@ stellar contract deploy \
   --source default \
   --network testnet
 ```
-*(Save the `CONTRACT_ID` that the terminal prints out!)*
 
-### 2. Connect the Frontend
+_(Save the `CONTRACT_ID` that the terminal prints out!)_
+
+### Frontend
+
 ```bash
-cd ../frontend
+cd frontend
+cp .env.example .env
+# fill in VITE_USDC_CONTRACT_ID and VITE_SOROBAN_RPC_URL
 
-# Generate the TypeScript bindings (Replace <YOUR_CONTRACT_ID> with the ID from above)
+npm install
+npm run dev
+```
+
+Install the [Freighter browser extension](https://freighter.app) and fund your testnet wallet.
+
+### Regenerate contract bindings (after redeployment)
+
+```bash
+cd frontend
+
 stellar contract bindings typescript \
   --network testnet \
   --contract-id <YOUR_CONTRACT_ID> \
   --output-dir src/contracts/tropa-split \
   --overwrite
+
+npm run build
 ```
-
-### 3. Run the App
-```bash
-# Install frontend dependencies
-npm install
-
-# Start the Vite server
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser to start splitting bills!
-```
-
----
-
-### 2. How to Work It (Step-by-Step Guide)
-
-To actually test this out locally and see it working on your machine, follow these steps:
-
-**Step 1: Setup your Freighter Wallet**
-1. Open your Freighter browser extension and make sure the network is set to **Testnet** (click the gear icon > Preferences > Network > Testnet).
-2. Go to the [Stellar Laboratory Friendbot](https://laboratory.stellar.org/#txbuilder?network=test) or just look for the "Fund with Friendbot" button inside Freighter to get some free fake Testnet XLM. 
-
-**Step 2: Deploy & Generate**
-1. Open your terminal, navigate to the `contract` folder, and run the two commands under the **Build and Deploy the Contract** section in the README. 
-2. Copy the `C...` string it spits out (that's your contract ID).
-3. Navigate to the `frontend` folder in your terminal and run the `stellar contract bindings` command, pasting your contract ID at the end. This magically creates the `src/contracts/tropa-split` folder with all your backend logic!
-
-**Step 3: Run the App**
-1. Inside the `frontend` folder, run `npm install` and then `npm run dev`.
-2. Click the `http://localhost:5173` link in your terminal.
-3. Click **Connect Wallet** in the top right.
-4. Type in `1000` for the bill, `100` for service charge, and `5` for people, then click **Create Room**.
-5. It will take you to the payment page and generate the QR code! (You will see Freighter pop up asking you to sign the transaction to create the room).
-
-Let me know if you hit any bumps while running those terminal commands!

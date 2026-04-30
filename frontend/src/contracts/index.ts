@@ -86,7 +86,7 @@ export async function getFreighterClient(overrides?: { networkPassphrase?: strin
 
   return new Client({
     publicKey,
-    contractId: TESTNET.contractId,
+    contractId: import.meta.env.VITE_CONTRACT_ID || TESTNET.contractId,
     networkPassphrase,
     rpcUrl,
     allowHttp: true,

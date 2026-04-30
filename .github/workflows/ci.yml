@@ -1,0 +1,100 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  # ============ CONTRACT: Build & Test ============
+  build-contract:
+    runs-on: ubuntu-latest
+    name: Contract - Build & Test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-git-
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: contract/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('contract/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-build-
+
+      - name: Build Smart Contract WASM
+        working-directory: ./contract
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Run Contract Tests
+        working-directory: ./contract
+        run: cargo test --lib --release
+
+  # ============ FRONTEND: Lint, Type-Check & Build ============
+  build-frontend:
+    runs-on: ubuntu-latest
+    name: Frontend - Lint, Type-Check & Build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: TypeScript Type Check
+        working-directory: ./frontend
+        run: npx tsc --noEmit
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  # ============ DEPLOYMENT: Deploy to Vercel (optional) ============
+  deploy-to-vercel:
+    runs-on: ubuntu-latest
+    name: Deploy Frontend to Vercel
+    needs: build-frontend
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: vercel/action@main
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: frontend
