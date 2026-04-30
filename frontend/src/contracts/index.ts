@@ -22,6 +22,7 @@ const RPC_URL = import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet
 const NETWORK_PASSPHRASE = import.meta.env.VITE_NETWORK_PASSPHRASE || TESTNET.networkPassphrase;
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function signAndSubmit(tx: any): Promise<void> {
   const passphrase = NETWORK_PASSPHRASE;
 
