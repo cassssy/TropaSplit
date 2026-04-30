@@ -38,10 +38,10 @@ async function signAndSubmit(tx: any): Promise<void> {
   const rawXdr = tx.built.toXDR();
 
   // 2. Request Freighter signature
-  const res = await signTransaction(rawXdr, { network: "TESTNET", networkPassphrase: passphrase });
+  const res = await signTransaction(rawXdr, { networkPassphrase: passphrase });
   
   // Handle different Freighter API return types safely
-  const signedXdrStr = typeof res === 'string' ? res : (res.signedTxXdr || res.signedTransaction || res.transaction);
+  const signedXdrStr = typeof res === 'string' ? res : res.signedTxXdr;
   
   if (!signedXdrStr) {
     throw new Error('Transaction was not signed by Freighter');
@@ -60,7 +60,7 @@ async function signAndSubmit(tx: any): Promise<void> {
   }
 
   // 5. Poll the network manually (bypasses the buggy SDK parser)
-  let status = sendResponse.status;
+  let status = sendResponse.status as string;
   while (status === 'PENDING') {
     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
     const pollResponse = await server.getTransaction(sendResponse.hash);
@@ -90,13 +90,13 @@ export async function getFreighterClient(overrides?: { networkPassphrase?: strin
     networkPassphrase,
     rpcUrl,
     allowHttp: true,
-    signTransaction: async (xdr: string, opts: Record<string, unknown>) => {
-      const res = (await signTransaction(xdr, { network: "TESTNET", networkPassphrase, ...opts })) as FreighterSignResult;
+    signTransaction: async (xdr: string, opts?: any) => {
+      const res = (await signTransaction(xdr, { networkPassphrase, ...opts })) as any;
       console.log("Freighter signTransaction response:", res);
 
       if (typeof res === 'string') return res;
       if (res.error) throw new Error(res.error);
-      return res.signedTxXdr || res.signedTransaction || res.transaction;
+      return res.signedTxXdr;
     }
   });
 }
