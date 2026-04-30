@@ -21,15 +21,6 @@ const TESTNET = networks.testnet;
 const RPC_URL = import.meta.env.VITE_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org:443';
 const NETWORK_PASSPHRASE = import.meta.env.VITE_NETWORK_PASSPHRASE || TESTNET.networkPassphrase;
 
-type FreighterSignResult =
-  | string
-  | {
-      error?: string;
-      signedTxXdr?: string;
-      signedTransaction?: string;
-      transaction?: string;
-    };
-
 
 async function signAndSubmit(tx: any): Promise<void> {
   const passphrase = NETWORK_PASSPHRASE;
@@ -90,7 +81,8 @@ export async function getFreighterClient(overrides?: { networkPassphrase?: strin
     networkPassphrase,
     rpcUrl,
     allowHttp: true,
-    signTransaction: async (xdr: string, opts?: any) => {
+    signTransaction: async (xdr: string, opts?: Record<string, unknown>) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = (await signTransaction(xdr, { networkPassphrase, ...opts })) as any;
       console.log("Freighter signTransaction response:", res);
 

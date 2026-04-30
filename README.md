@@ -15,9 +15,9 @@
 | Frontend                        | https://tropa-split.vercel.app/                                                                                        |
 | Network                         | Stellar Testnet                                                                                                        |
 
-![TropaSplit contract on Stellar Expert](docs/stellar_contract.png)
+[![TropaSplit contract on Stellar Expert](docs/stellar_contract.png)](https://stellar.expert/explorer/testnet/contract/CA6GQTASFPVFE5HTZD3NK6PUMKOTHGDSUDLXRNZZAVTPNOEQEXDZGDO2)
 
-![Tropa Split UI Screenshot (Mobile View)](docs/app_screenshot.png)
+[![Tropa Split UI Screenshot (Mobile View)](docs/app_screenshot.png)](https://tropa-split.vercel.app/)
 
 ---
 
