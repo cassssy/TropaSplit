@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useWallet } from '../context/useWallet';
 import * as TropaSplit from '../contracts';
@@ -10,6 +10,7 @@ type LobbyMember = { address: string; name: string; amount: bigint | null };
 
 export default function Pay() {
   const { splitId } = useParams();
+  const navigate = useNavigate();
   const { address, connect, disconnect } = useWallet();
   const [splitData, setSplitData] = useState<(SplitConfig & { paid_count: number }) | null>(null);
   const [isPaying, setIsPaying] = useState(false);
@@ -90,6 +91,12 @@ useEffect(() => {
       const info = await TropaSplit.getSplitInfo({ split_id: roomPin });
       if (ignore) return;
       setSplitData(info.result);
+
+      // Save to history
+      const savedSplits = JSON.parse(localStorage.getItem('tropa_splits') || '[]');
+      if (!savedSplits.includes(roomPin)) {
+        localStorage.setItem('tropa_splits', JSON.stringify([roomPin, ...savedSplits]));
+      }
 
       if (address && info.result) {
         const paid = await TropaSplit.hasAddressPaid({ split_id: roomPin, friend: address });
@@ -244,15 +251,20 @@ useEffect(() => {
 
   return (
     <div className="page-shell">
-      <div className="row-actions row-end" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-        <button onClick={connect} className={address ? 'btn btn-secondary' : 'btn btn-primary'}>
-          {address ? `${address.slice(0, 4)}...${address.slice(-4)}` : "Connect Wallet"}
+      <div className="row-actions row-end" style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', width: '100%' }}>
+        <button onClick={() => navigate('/')} className="btn btn-secondary" style={{ backgroundColor: '#f1f5f9', color: '#475569', border: 'none' }}>
+          ← Home
         </button>
-        {address && (
-          <button onClick={disconnect} className="btn btn-secondary" style={{ backgroundColor: '#ff4d4f', color: 'white', border: 'none' }}>
-            Logout
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={connect} className={address ? 'btn btn-secondary' : 'btn btn-primary'}>
+            {address ? `${address.slice(0, 4)}...${address.slice(-4)}` : "Connect Wallet"}
           </button>
-        )}
+          {address && (
+            <button onClick={disconnect} className="btn btn-secondary" style={{ backgroundColor: '#ff4d4f', color: 'white', border: 'none' }}>
+              Logout
+            </button>
+          )}
+        </div>
       </div>
 
       <section className="panel panel-centered">
